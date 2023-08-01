@@ -1,22 +1,19 @@
 package com.example.ussd.Controller;
-import com.example.ussd.Model.Userussd;
+
 import com.example.ussd.Model.Userz;
 import com.example.ussd.Model.UssdRequest;
-import com.example.ussd.Model.UssdSession;
+
 import com.example.ussd.Repository.UserRepository;
-import com.example.ussd.Service.UserService;
+
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.ui.ModelMap;
+
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpSession;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
 
 //@RestController
 //public class Ussdcontroller2 {
