@@ -1,0 +1,40 @@
+package com.example.ussd.Service;
+//
+//
+//import com.example.ussd.Model.User;
+//import com.example.ussd.Repository.UserRepository;
+//import org.springframework.beans.factory.annotation.Autowired;
+//import org.springframework.stereotype.Service;
+//
+//    @Service
+//    public class UserService {
+//        private final UserRepository userRepository;
+//
+//        @Autowired
+//        public UserService(UserRepository userRepository) {
+//            this.userRepository = userRepository;
+//        }
+//
+//        public void registerUser(User user) {
+//            userRepository.save(user);
+//        }
+//    }
+//
+//
+//import com.example.ussd.Model.Userussd;
+import com.example.ussd.Model.Userz;
+import com.example.ussd.Repository.UserRepository;
+import org.springframework.stereotype.Service;
+
+@Service
+public class UserService {
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public Userz saveUser(Userz user) {
+        return userRepository.save(user);
+    }
+}
