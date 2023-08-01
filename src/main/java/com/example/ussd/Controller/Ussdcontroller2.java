@@ -5,6 +5,8 @@ import com.example.ussd.Model.UssdRequest;
 import com.example.ussd.Model.UssdSession;
 import com.example.ussd.Repository.UserRepository;
 import com.example.ussd.Service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -145,83 +147,230 @@ import java.util.Date;
 //}
 
 
+//@RestController
+//@SessionAttributes("ussdSession")
+//public class Ussdcontroller2 {
+//
+//    private final UserRepository userRepository;
+//
+//    public Ussdcontroller2(UserRepository userRepository) {
+//        this.userRepository = userRepository;
+//    }
+//
+//    @PostMapping("/ussd")
+//    public ResponseEntity<String> handleUssdRequest(@RequestParam("sessionId") String sessionId,
+//                                                    @RequestParam("phoneNumber") String phoneNumber,
+//                                                    @RequestParam("text") String text,
+//                                                    HttpSession session) {
+//
+//        UssdSession ussdSession = (UssdSession) session.getAttribute("ussdSession");
+//        if (ussdSession == null || text.trim().equalsIgnoreCase("1")) {
+//            ussdSession = new UssdSession();
+//            ussdSession.setSessionId(sessionId);
+//            ussdSession.setPhoneNumber(phoneNumber);
+//            ussdSession.setLevel(0); // Set the initial level to 0 for a new session
+//            session.setAttribute("ussdSession", ussdSession);
+//            return ResponseEntity.ok("CON Welcome! Please select a language:\n1. English\n2. French");
+//        }
+//
+//        int currentLevel = ussdSession.getLevel();
+//
+//        switch (currentLevel) {
+//            case 0:
+//                if (text.trim().equalsIgnoreCase("1")) {
+//                    ussdSession.setLanguage("English");
+//                    ussdSession.setLevel(1);
+//                    return ResponseEntity.ok("CON Thank you! Please enter your first name:");
+//                } else if (text.trim().equalsIgnoreCase("2")) {
+//                    ussdSession.setLanguage("French");
+//                    ussdSession.setLevel(1);
+//                    return ResponseEntity.ok("CON Merci! Veuillez entrer votre prénom:");
+//                } else {
+//                    return ResponseEntity.ok("CON Invalid input. Please select a valid language:\n1. English\n2. French");
+//                }
+//            case 1:
+//                if (ussdSession.getLanguage().equalsIgnoreCase("French")) {
+//                    ussdSession.setFirstName(text.trim());
+//                    ussdSession.setLevel(2);
+//                    return ResponseEntity.ok("CON Merci! Veuillez entrer votre nom de famille:");
+//                } else {
+//                    ussdSession.setFirstName(text.trim());
+//                    ussdSession.setLevel(2);
+//                    return ResponseEntity.ok("CON Thank you! Please enter your last name:");
+//                }
+//            case 2:
+//                ussdSession.setLastName(text.trim());
+//                ussdSession.setLevel(3);
+//                return ResponseEntity.ok("CON Thank you! Please enter your national ID:");
+//            case 3:
+//                ussdSession.setNationalId(text.trim());
+//                ussdSession.setLevel(4);
+//                return ResponseEntity.ok("CON Thank you! Please enter your location:");
+//            case 4:
+//                ussdSession.setLocation(text.trim());
+//                // Save the user data to the database
+//                Userz user = new Userz();
+//                user.setFirstName(ussdSession.getFirstName());
+//                user.setLastName(ussdSession.getLastName());
+//                user.setNationalId(ussdSession.getNationalId());
+//                user.setLocation(ussdSession.getLocation());
+//                userRepository.save(user);
+//
+//                // Reset the session to start a new registration process
+//                session.removeAttribute("ussdSession");
+//
+//                return ResponseEntity.ok("END Thank you for completing the registration process!");
+//            default:
+//                // Invalid level, reset the session
+//                session.removeAttribute("ussdSession");
+//                return ResponseEntity.ok("END Session expired. Please start a new session.");
+//        }
+//    }
+//}
+
+
 @RestController
-@SessionAttributes("ussdSession")
 public class Ussdcontroller2 {
 
-    private final UserRepository userRepository;
-
-    public Ussdcontroller2(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    private enum RegistrationStep {
+        LANGUAGE_SELECTION,
+        FIRST_NAME,
+        LAST_NAME,
+        NATIONAL_ID,
+        LOCATION,
+        CONFIRMATION,
+        END
     }
 
+    @Autowired
+    private UserRepository userRepository;
+
     @PostMapping("/ussd")
-    public ResponseEntity<String> handleUssdRequest(@RequestParam("sessionId") String sessionId,
-                                                    @RequestParam("phoneNumber") String phoneNumber,
-                                                    @RequestParam("text") String text,
-                                                    HttpSession session) {
+    public String processUssdRequest(@RequestBody UssdRequest ussdRequest, HttpServletRequest request) {
+        HttpSession httpSession = request.getSession();
+        String sessionId = ussdRequest.getSessionId();
+        String text = ussdRequest.getText();
+        String response = "";
 
-        UssdSession ussdSession = (UssdSession) session.getAttribute("ussdSession");
-        if (ussdSession == null || text.trim().equalsIgnoreCase("1")) {
-            ussdSession = new UssdSession();
-            ussdSession.setSessionId(sessionId);
-            ussdSession.setPhoneNumber(phoneNumber);
-            ussdSession.setLevel(0); // Set the initial level to 0 for a new session
-            session.setAttribute("ussdSession", ussdSession);
-            return ResponseEntity.ok("CON Welcome! Please select a language:\n1. English\n2. French");
+        // Check if the session is new or continuous
+        boolean newSession = sessionId.equals("1");
+
+        if (newSession) {
+            // If it's a new session, initialize the USSD flow from the beginning
+            httpSession.invalidate(); // Invalidate any existing session
+            httpSession = request.getSession(true); // Create a new session
+            httpSession.setAttribute("currentStep", RegistrationStep.LANGUAGE_SELECTION);
+            httpSession.setAttribute("level", 1); // Set the initial level to 1
+        } else {
+            // For continuous session, retrieve the current step and level from the session
+            RegistrationStep currentStep = (RegistrationStep) httpSession.getAttribute("currentStep");
+            Integer level = (Integer) httpSession.getAttribute("level");
+            int currentLevel = (level != null) ? level.intValue() : 1; // Default to 1 if level is null
+
+            if (currentStep == null) {
+                // If the current step is not set in the session, start the flow from the beginning
+                httpSession.setAttribute("currentStep", RegistrationStep.LANGUAGE_SELECTION);
+                httpSession.setAttribute("level", 1); // Set the initial level to 1
+                currentStep = RegistrationStep.LANGUAGE_SELECTION;
+                currentLevel = 1;
+            }
+
+            switch (currentStep) {
+                case LANGUAGE_SELECTION:
+                    // Check if the user has selected a language
+                    if (text.equalsIgnoreCase("1")) {
+                        // Set the language in the session and move to the next step (asking for First Name)
+                        httpSession.setAttribute("language", "English");
+                        httpSession.setAttribute("currentStep", RegistrationStep.FIRST_NAME);
+                        response = "CON Please enter your First Name:";
+                    } else if (text.equalsIgnoreCase("2")) {
+                        // Set the language in the session and move to the next step (asking for First Name)
+                        httpSession.setAttribute("language", "French");
+                        httpSession.setAttribute("currentStep", RegistrationStep.FIRST_NAME);
+                        response = "CON Please enter your First Name:";
+                    } else {
+                        // Invalid selection, prompt again for language selection
+                        response = "CON Invalid input. Select your preferred language:\n";
+                        response += "1. English\n";
+                        response += "2. French";
+                    }
+                    break;
+                case FIRST_NAME:
+                    // Your first name registration logic here
+                    // Move to the next step (asking for Last Name)
+                    httpSession.setAttribute("firstName", text);
+                    httpSession.setAttribute("currentStep", RegistrationStep.LAST_NAME);
+                    response = "CON Please enter your Last Name:";
+                    break;
+                case LAST_NAME:
+                    // Your last name registration logic here
+                    // Move to the next step (asking for National ID)
+                    httpSession.setAttribute("lastName", text);
+                    httpSession.setAttribute("currentStep", RegistrationStep.NATIONAL_ID);
+                    response = "CON Please enter your National ID:";
+                    break;
+                case NATIONAL_ID:
+                    // Your national ID registration logic here
+                    // Move to the next step (asking for Location)
+                    httpSession.setAttribute("nationalId", text);
+                    httpSession.setAttribute("currentStep", RegistrationStep.LOCATION);
+                    response = "CON Please enter your Location:";
+                    break;
+                case LOCATION:
+                    // Your location registration logic here
+                    // Save the user information to the database
+                    httpSession.setAttribute("location", text);
+
+                    // Move to the next step (asking for confirmation)
+                    httpSession.setAttribute("currentStep", RegistrationStep.CONFIRMATION);
+                    response = "CON Please confirm your information:\n";
+                    response += "First Name: " + httpSession.getAttribute("firstName") + "\n";
+                    response += "Last Name: " + httpSession.getAttribute("lastName") + "\n";
+                    response += "National ID: " + httpSession.getAttribute("nationalId") + "\n";
+                    response += "Location: " + text + "\n";
+                    response += "Reply with 1 to confirm or 2 to cancel.";
+                    break;
+                case CONFIRMATION:
+                    // Your confirmation logic here
+                    if (text.equals("1")) {
+                        // Save the user information to the database
+                        Userz newUser = new Userz();
+                        newUser.setLanguage((String) httpSession.getAttribute("language"));
+                        newUser.setFirstName((String) httpSession.getAttribute("firstName"));
+                        newUser.setLastName((String) httpSession.getAttribute("lastName"));
+                        newUser.setNationalId((String) httpSession.getAttribute("nationalId"));
+                        newUser.setLocation((String) httpSession.getAttribute("location"));
+                        newUser.setLevel(currentLevel); // Set the current level
+                        userRepository.save(newUser);
+
+                        // Clear the session after successful registration
+                        httpSession.removeAttribute("currentStep");
+                        httpSession.removeAttribute("language");
+                        httpSession.removeAttribute("firstName");
+                        httpSession.removeAttribute("lastName");
+                        httpSession.removeAttribute("nationalId");
+                        httpSession.removeAttribute("location");
+
+                        response = "END Registration completed. Your information has been saved.";
+                    } else if (text.equals("2")) {
+                        // If the user cancels, end the session
+                        httpSession.setAttribute("currentStep", RegistrationStep.END);
+                        response = "END Registration canceled.";
+                    } else {
+                        // If the user enters an invalid response, prompt again for confirmation
+                        response = "CON Invalid input. Reply with 1 to confirm or 2 to cancel.";
+                    }
+                    break;
+                case END:
+                    response = "END Thank you for registering!";
+                    break;
+            }
+
+            // Update the user's level in the session for the next interaction
+            currentLevel++;
+            httpSession.setAttribute("level", currentLevel);
         }
 
-        int currentLevel = ussdSession.getLevel();
-
-        switch (currentLevel) {
-            case 0:
-                if (text.trim().equalsIgnoreCase("1")) {
-                    ussdSession.setLanguage("English");
-                    ussdSession.setLevel(1);
-                    return ResponseEntity.ok("CON Thank you! Please enter your first name:");
-                } else if (text.trim().equalsIgnoreCase("2")) {
-                    ussdSession.setLanguage("French");
-                    ussdSession.setLevel(1);
-                    return ResponseEntity.ok("CON Merci! Veuillez entrer votre prénom:");
-                } else {
-                    return ResponseEntity.ok("CON Invalid input. Please select a valid language:\n1. English\n2. French");
-                }
-            case 1:
-                if (ussdSession.getLanguage().equalsIgnoreCase("French")) {
-                    ussdSession.setFirstName(text.trim());
-                    ussdSession.setLevel(2);
-                    return ResponseEntity.ok("CON Merci! Veuillez entrer votre nom de famille:");
-                } else {
-                    ussdSession.setFirstName(text.trim());
-                    ussdSession.setLevel(2);
-                    return ResponseEntity.ok("CON Thank you! Please enter your last name:");
-                }
-            case 2:
-                ussdSession.setLastName(text.trim());
-                ussdSession.setLevel(3);
-                return ResponseEntity.ok("CON Thank you! Please enter your national ID:");
-            case 3:
-                ussdSession.setNationalId(text.trim());
-                ussdSession.setLevel(4);
-                return ResponseEntity.ok("CON Thank you! Please enter your location:");
-            case 4:
-                ussdSession.setLocation(text.trim());
-                // Save the user data to the database
-                Userz user = new Userz();
-                user.setFirstName(ussdSession.getFirstName());
-                user.setLastName(ussdSession.getLastName());
-                user.setNationalId(ussdSession.getNationalId());
-                user.setLocation(ussdSession.getLocation());
-                userRepository.save(user);
-
-                // Reset the session to start a new registration process
-                session.removeAttribute("ussdSession");
-
-                return ResponseEntity.ok("END Thank you for completing the registration process!");
-            default:
-                // Invalid level, reset the session
-                session.removeAttribute("ussdSession");
-                return ResponseEntity.ok("END Session expired. Please start a new session.");
-        }
+        return response;
     }
 }
