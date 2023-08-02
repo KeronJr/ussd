@@ -279,12 +279,12 @@ public class Ussdcontroller2 {
                         // Set the language in the session and move to the next step (asking for First Name)
                         httpSession.setAttribute("language", "English");
                         httpSession.setAttribute("currentStep", RegistrationStep.FIRST_NAME);
-                        response = "CON Please enter your First Name:";
+                        response = " Please enter your First Name:";
                     } else if (text.equalsIgnoreCase("2")) {
                         // Set the language in the session and move to the next step (asking for First Name)
                         httpSession.setAttribute("language", "French");
                         httpSession.setAttribute("currentStep", RegistrationStep.FIRST_NAME);
-                        response = "CON Please enter your First Name:";
+                        response = " Please enter your First Name:";
                     } else {
                         // Invalid selection, prompt again for language selection
                         response = "CON Invalid input. Select your preferred language:\n";
@@ -297,21 +297,21 @@ public class Ussdcontroller2 {
                     // Move to the next step (asking for Last Name)
                     httpSession.setAttribute("firstName", text);
                     httpSession.setAttribute("currentStep", RegistrationStep.LAST_NAME);
-                    response = "CON Please enter your Last Name:";
+                    response = " Please enter your Last Name:";
                     break;
                 case LAST_NAME:
                     // Your last name registration logic here
                     // Move to the next step (asking for National ID)
                     httpSession.setAttribute("lastName", text);
                     httpSession.setAttribute("currentStep", RegistrationStep.NATIONAL_ID);
-                    response = "CON Please enter your National ID:";
+                    response = " Please enter your National ID:";
                     break;
                 case NATIONAL_ID:
                     // Your national ID registration logic here
                     // Move to the next step (asking for Location)
                     httpSession.setAttribute("nationalId", text);
                     httpSession.setAttribute("currentStep", RegistrationStep.LOCATION);
-                    response = "CON Please enter your Location:";
+                    response = " Please enter your Location:";
                     break;
                 case LOCATION:
                     // Your location registration logic here
@@ -320,7 +320,7 @@ public class Ussdcontroller2 {
 
                     // Move to the next step (asking for confirmation)
                     httpSession.setAttribute("currentStep", RegistrationStep.CONFIRMATION);
-                    response = "CON Please confirm your information:\n";
+                    response = " Please confirm your information:\n";
                     response += "First Name: " + httpSession.getAttribute("firstName") + "\n";
                     response += "Last Name: " + httpSession.getAttribute("lastName") + "\n";
                     response += "National ID: " + httpSession.getAttribute("nationalId") + "\n";
@@ -355,7 +355,7 @@ public class Ussdcontroller2 {
                         response = "END Registration canceled.";
                     } else {
                         // If the user enters an invalid response, prompt again for confirmation
-                        response = "CON Invalid input. Reply with 1 to confirm or 2 to cancel.";
+                        response = " Invalid input. Reply with 1 to confirm or 2 to cancel.";
                     }
                     break;
                 case END:
